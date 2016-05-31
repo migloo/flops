@@ -15,12 +15,13 @@ mkdir static
 nano app.py
 
 sudo rm /etc/nginx/sites-enabled/default
-sudo nano /etc/nginx/sites-available/flask_project
+sudo mv /etc/nginx/sites-available/nginx_flask_deploy
 
-sudo ln -s /etc/nginx/sites-available/flask_project /etc/nginx/sites-enabled/flask_project
+sudo ln -s /etc/nginx/sites-available/nginx_flask_deploy /etc/nginx/sites-enabled/nginx_flask_deploy
 sudo nano /etc/supervisor/conf.d/flask_project.conf
 
 sudo supervisorctl reread
 sudo supervisorctl update
 sudo supervisorctl start flask_project
 sudo service nginx restart
+
