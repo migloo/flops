@@ -1,6 +1,3 @@
-adduser deploy
-sudo adduser deploy sudo
-
 sudo apt-get update
 sudo apt-get install -y python python-pip python-virtualenv nginx supervisor
 
@@ -15,13 +12,12 @@ mkdir static
 nano app.py
 
 sudo rm /etc/nginx/sites-enabled/default
-sudo mv /etc/nginx/sites-available/nginx_flask_deploy
+sudo mv /home/deploy/flask_project/config/nginx_flask_deploy  /etc/nginx/sites-available/nginx_flask_deploy
 
 sudo ln -s /etc/nginx/sites-available/nginx_flask_deploy /etc/nginx/sites-enabled/nginx_flask_deploy
-sudo nano /etc/supervisor/conf.d/flask_project.conf
+sudo mv /home/deploy/flask_project/config/flask_project.conf  /etc/supervisor/conf.d/flask_project.conf
 
 sudo supervisorctl reread
 sudo supervisorctl update
 sudo supervisorctl start flask_project
 sudo service nginx restart
-
