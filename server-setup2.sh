@@ -1,21 +1,19 @@
 sudo apt-get update
-sudo apt-get install -y python python-pip python-virtualenv nginx supervisor
+sudo apt-get install -y python python-pip python-virtualenv nginx supervisor git
 
-cd /home/deploy
+cd ~
+git clone https://github.com/migloo/flask_project.git
+
 virtualenv env
 source env/bin/activate
 
 pip install flask gunicorn
-mkdir flask_project && cd flask_project
-
-mkdir static
-nano app.py
 
 sudo rm /etc/nginx/sites-enabled/default
-sudo mv /home/deploy/flask_project/config/nginx_flask_deploy  /etc/nginx/sites-available/nginx_flask_deploy
+sudo cp /home/deploy/flask_project/config/flask_deploy /etc/nginx/sites-available/flask_deploy
+sudo ln -s /etc/nginx/sites-available/flask_deploy /etc/nginx/sites-enabled/flask_deploy
 
-sudo ln -s /etc/nginx/sites-available/nginx_flask_deploy /etc/nginx/sites-enabled/nginx_flask_deploy
-sudo mv /home/deploy/flask_project/config/flask_project.conf  /etc/supervisor/conf.d/flask_project.conf
+sudo cp /home/deploy/flask_project/config/flask_project.conf  /etc/supervisor/conf.d/flask_project.conf
 
 sudo supervisorctl reread
 sudo supervisorctl update
