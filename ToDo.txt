@@ -1,0 +1,21 @@
+1. Need to config the supervisor file
+2. Need to install virtualenv module on server through a requirement.txt
+3. Need to automate batch.
+	a. use Fab to automate command line
+	b. need files to be templates.
+4. Need to update on push to github.
+
+5. Automated check:
+  a. check existence user deploy.
+
+config file parameter:
+server ip
+port
+app repo
+git credentials ?
+
+one deploy file should:
+1. git clone le template locally
+2. install un folder avec l'app name remotely
+2. git clone l'app itself remotely
+3. do all the setup remotely.
