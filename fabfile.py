@@ -1,9 +1,11 @@
+from __future__ import with_statement
 ###############
 ### imports ###
 ###############
-from fabric.api import cd, env, lcd, put, prompt, local, sudo
-from fabric.contrib.files import exists
 import re, os, json
+from fabric.api import *
+from fabric.contrib.files import exists
+from contextlib import contextmanager as _contextmanager
 
 ##############
 ### config ###
@@ -18,14 +20,22 @@ local_config_dir = './config'
 remote_deploy_dir = '/home/deploy'
 nginx_sites_availables = '/etc/nginx/sites-available'
 nginx_sites_enabled = '/etc/nginx/sites-enabled'
+remote_supervisor_dir = '/etc/supervisor/conf.d'
 
-# remote_flask_dir = remote_app_dir + '/flask_project'
-# remote_nginx_dir = '/etc/nginx/sites-enabled'
-# remote_supervisor_dir = '/etc/supervisor/conf.d'
 env.hosts = [deploy_param['server_ip_or_domain']]  # replace with IP address or hostname
 env.user = 'deploy'
 env.password = os.environ.get('SERVER_SUDO_PWD')
 if (env.password == None): print "ERROR: SUDO PASSWORD NOT SET"
+
+# env.keyfile = ['$HOME/.ssh/deploy_rsa']
+env.directory = '~'
+env.activate = 'source ~/env/bin/activate'
+
+@_contextmanager
+def virtualenv():
+    with cd(env.directory):
+        with prefix(env.activate):
+            yield
 
 #############
 ### tasks ###
@@ -47,10 +57,10 @@ def install_flask_app(app_git_repo):
     2. Clone Flask project to remote host
     """
     with cd(remote_deploy_dir):
-        run('git clone '+ app_repo)
+        run('git clone '+ app_git_repo)
         run('virtualenv env')
-        run('source env/bin/activate')
-        run('pip install flask gunicorn')
+        with virtualenv():
+            run('pip install flask gunicorn')
 
 
 def nginx_enable(app_name):
@@ -59,7 +69,12 @@ def nginx_enable(app_name):
     if exists('/etc/nginx/sites-enabled/default'):
         sudo('rm /etc/nginx/sites-enabled/default')
     put(nginx_config_file, nginx_sites_availables+'/'+app_name, use_sudo=True) 
-    sudo('ln -s '+nginx_sites_availables+'/'+app_name+' '+nginx_sites_enabled+'/'+app_name)
+
+    with cd(nginx_sites_availables):
+        sudo("sed -i -- 's/your_app_name/"+app_name+"/g' "+app_name) 
+
+    if exists(nginx_sites_enabled+'/'+app_name) is False:
+        sudo('ln -s '+nginx_sites_availables+'/'+app_name+' '+nginx_sites_enabled+'/'+app_name)
     sudo('/etc/init.d/nginx restart')
 
 
@@ -69,14 +84,15 @@ def configure_supervisor(app_name):
     2. Copy local config to remote config
     3. Register new command
     """
-    if exists('/etc/supervisor/conf.d/flask_project.conf') is False:
+    if exists('/etc/supervisor/conf.d/'+app_name+".conf") is False:
         with lcd(local_config_dir):
             with cd(remote_supervisor_dir):
-                put(nginx_config_file, nginx_sites_availables+'/'+app_name, use_sudo=True) 
-                put('./flask_project.conf', './', use_sudo=True)
+                put('./flask_project.conf', './'+app_name+".conf", use_sudo=True)
+                sudo("sed -i -- 's/your_app_name/"+app_name+"/g' "+app_name+".conf")
                 sudo('supervisorctl reread')
                 sudo('supervisorctl update')
                 sudo('supervisorctl restart '+app_name)
+
 
 
 # def configure_git():
@@ -132,12 +148,17 @@ def configure_supervisor(app_name):
 
 
 def create():
-    install_requirements()
-    install_flask_app(deploy_params.git_repo)
-    nginx_enable(app_ame)
+    # install_requirements()
+    # install_flask_app(app_git_repo)
+    nginx_enable(app_name)
     configure_supervisor(app_name)
     # configure_git()
+
+#need to create a list 
+#need to install the list of packages 
 
 #usage
 #floy create  // without argument must create a dummy app 
 #floy create myapp // must create an app according to myapp.json
+#see how to produce a 'requirements.txt' file. 
+#need a remove app
