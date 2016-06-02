@@ -148,8 +148,8 @@ def configure_supervisor(app_name):
 
 
 def create():
-    # install_requirements()
-    # install_flask_app(app_git_repo)
+    install_requirements()
+    install_flask_app(app_git_repo)
     nginx_enable(app_name)
     configure_supervisor(app_name)
     # configure_git()
