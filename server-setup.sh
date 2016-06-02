@@ -1,3 +1,5 @@
+
+#change here the paths, they are outdated.
 sudo apt-get update
 sudo apt-get install -y python python-pip python-virtualenv nginx supervisor git
 
