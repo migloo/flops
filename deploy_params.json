@@ -1,4 +1,4 @@
 {
-	"git_repo"			  : "https://github.com/migloo/test-app.git",
+	"git_repo"			  : "git@github.com:migloo/tenant-safe.git",
 	"server_ip_or_domain" : "dev.100mdeep.com"
 }

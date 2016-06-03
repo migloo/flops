@@ -1,35 +1,30 @@
 from __future__ import with_statement
-###############
-### imports ###
-###############
-import re, os, json
 from fabric.api import *
 from fabric.contrib.files import exists
 from contextlib import contextmanager as _contextmanager
+import re, os, json
 
 ##############
 ### config ###
 ##############
-local_dir = os.path.dirname(os.path.abspath(__file__))
-deploy_config_json = local_dir+'\\'+'deploy_params.json'
-deploy_param  = json.load(open(deploy_config_json))
-app_git_repo = deploy_param['git_repo']
-app_name = re.search(".+(?=.git)",app_git_repo.split('/')[-1]).group(0)   
+local_dir = os.getcwd()
+app_git_repo = re.search("git@github.com:.+(.git)",open('./.git/config').read()).group(0)
+app_name = app_git_repo.split('/')[1][:-4]  
 
-local_config_dir = './config'
+local_config_dir = os.path.dirname(os.path.realpath(__file__)) +'/config'
 remote_deploy_dir = '/home/deploy'
 nginx_sites_availables = '/etc/nginx/sites-available'
 nginx_sites_enabled = '/etc/nginx/sites-enabled'
 remote_supervisor_dir = '/etc/supervisor/conf.d'
 
-env.hosts = [deploy_param['server_ip_or_domain']]  # replace with IP address or hostname
+env.hosts = ['dev.100mdeep.com']  # replace with IP address or hostname
 env.user = 'deploy'
-env.password = os.environ.get('SERVER_SUDO_PWD')
-if (env.password == None): print "ERROR: SUDO PASSWORD NOT SET"
+env.password = os.environ.get('REMOTE_SUDO_PWD')
+system_package_to_install = ["python", "python-pip", "python-virtualenv", "nginx", "supervisor", "git"]
 
 # env.keyfile = ['$HOME/.ssh/deploy_rsa']
 env.directory = '~'
-env.activate = 'source ~/env/bin/activate'
+env.activate = 'source ~/.'+app_name+'/bin/activate'
 
 @_contextmanager
 def virtualenv():
@@ -40,34 +35,36 @@ def virtualenv():
 #############
 ### tasks ###
 #############
+sudo_apt_install = lambda x: sudo('apt-get install -y '+x)
+
+def checks():
+    if (env.password == None): abort("Please set env variable REMOTE_SUDO_PWD")
+
+
 def install_requirements():
     """ Install required packages. """
     sudo('apt-get update')
-    sudo('apt-get install -y python')
-    sudo('apt-get install -y python-pip')
-    sudo('apt-get install -y python-virtualenv')
-    sudo('apt-get install -y nginx')
-    sudo('apt-get install -y supervisor')
-    sudo('apt-get install -y git')
+    map(sudo_apt_install, system_package_to_install)
 
 
-def install_flask_app(app_git_repo):
+def install_flask_app():
     """
     1. Create and activate a virtualenv
     2. Clone Flask project to remote host
     """
     with cd(remote_deploy_dir):
         run('git clone '+ app_git_repo)
-        run('virtualenv env')
+        run('virtualenv .'+app_name)
         with virtualenv():
             run('pip install flask gunicorn')
+            run('pip install -r '+app_name+'/requirements.txt')
 
 
 def nginx_enable(app_name):
     #will need to customize the template here.
     nginx_config_file = local_config_dir+'/nginx_flask_deploy'
-    if exists('/etc/nginx/sites-enabled/default'):
-        sudo('rm /etc/nginx/sites-enabled/default')
+    if exists(nginx_sites_enabled+'/default'):
+        sudo('rm '+nginx_sites_enabled+'/default')
     put(nginx_config_file, nginx_sites_availables+'/'+app_name, use_sudo=True) 
 
     with cd(nginx_sites_availables):
@@ -84,14 +81,13 @@ def configure_supervisor(app_name):
     2. Copy local config to remote config
     3. Register new command
     """
-    if exists('/etc/supervisor/conf.d/'+app_name+".conf") is False:
-        with lcd(local_config_dir):
-            with cd(remote_supervisor_dir):
-                put('./flask_project.conf', './'+app_name+".conf", use_sudo=True)
-                sudo("sed -i -- 's/your_app_name/"+app_name+"/g' "+app_name+".conf")
-                sudo('supervisorctl reread')
-                sudo('supervisorctl update')
-                sudo('supervisorctl restart '+app_name)
+    if exists(remote_supervisor_dir+'/'+app_name+".conf") is False:
+        with cd(remote_supervisor_dir):
+            put(local_config_dir+'/flask_project.conf', './'+app_name+".conf", use_sudo=True)
+            sudo("sed -i -- 's/your_app_name/"+app_name+"/g' "+app_name+".conf")
+            sudo('supervisorctl reread')
+            sudo('supervisorctl update')
+            sudo('supervisorctl restart '+app_name)
 
 
 
@@ -142,23 +138,30 @@ def configure_supervisor(app_name):
 #         sudo('supervisorctl restart flask_project')
 
 
-# def status():
-#     """ Is our app live? """
-#     sudo('supervisorctl status')
+def status():
+    """ Is our app live? """
+    sudo('supervisorctl status')
 
 
 def create():
+    local('pipreqs . --force')
     install_requirements()
-    install_flask_app(app_git_repo)
+    install_flask_app()
     nginx_enable(app_name)
     configure_supervisor(app_name)
     # configure_git()
 
-#need to create a list 
-#need to install the list of packages 
+
+def delete():
+    sudo('rm -rf ~/'+app_name+' ~/.'+'~/'+app_name)   
+    if exists(nginx_sites_availables+'/'+app_name) is True:
+        sudo('rm '+nginx_sites_availables+'/'+app_name)
+    if exists(nginx_sites_enabled+'/'+app_name) is True:
+        sudo('rm '+nginx_sites_enabled+'/'+app_name)
+    if exists(remote_supervisor_dir+'/'+app_name+".conf") is True:
+        sudo('sudo supervisorctl stop '+app_name)
+        sudo(remote_supervisor_dir+'/'+app_name+".conf")
+    sudo('service nginx restart')
 
 #usage
-#floy create  // without argument must create a dummy app 
-#floy create myapp // must create an app according to myapp.json
-#see how to produce a 'requirements.txt' file. 
-#need a remove app
+#WANT TO BE ABLE TO CALL: fab flops dev.100mdeep.com:80 and have the current git reop deployed there.
