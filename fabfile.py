@@ -17,7 +17,7 @@ nginx_sites_availables = '/etc/nginx/sites-available'
 nginx_sites_enabled = '/etc/nginx/sites-enabled'
 remote_supervisor_dir = '/etc/supervisor/conf.d'
 
-env.hosts = ['dev.100mdeep.com']  # replace with IP address or hostname
+env.hosts = ['dev.100mdeep.com']  # default host name, override in command line if you'd like. flops create:hosts="100mdeep.com"
 env.user = 'deploy'
 env.password = os.environ.get('REMOTE_SUDO_PWD')
 system_package_to_install = ["python", "python-pip", "python-virtualenv", "nginx", "supervisor", "git"]
@@ -160,7 +160,7 @@ def delete():
         sudo('rm '+nginx_sites_enabled+'/'+app_name)
     if exists(remote_supervisor_dir+'/'+app_name+".conf") is True:
         sudo('sudo supervisorctl stop '+app_name)
-        sudo(remote_supervisor_dir+'/'+app_name+".conf")
+        sudo('rm '+remote_supervisor_dir+'/'+app_name+".conf")
     sudo('service nginx restart')
 
 #usage
